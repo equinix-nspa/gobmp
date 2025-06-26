@@ -23,6 +23,8 @@ type producer struct {
 	addPathCapable map[int]bool
 	// If splitAF is set to true, ipv4 and ipv6 messages will go into separate topics
 	splitAF bool
+	// Queue to send messages
+	msgQueue chan interface{}
 }
 
 // Producer dispatches kafka workers upon request received from the channel
@@ -54,10 +56,11 @@ func (p *producer) producingWorker(msg bmp.Message) {
 }
 
 // NewProducer instantiates a new instance of a producer with Publisher interface
-func NewProducer(publisher pub.Publisher, splitAF bool) Producer {
+func NewProducer(publisher pub.Publisher, splitAF bool, msgQueue chan interface{}) Producer {
 	return &producer{
 		publisher:      publisher,
 		splitAF:        splitAF,
 		addPathCapable: make(map[int]bool),
+		msgQueue:       msgQueue,
 	}
 }
