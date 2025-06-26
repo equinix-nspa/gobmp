@@ -120,8 +120,9 @@ func (srv *bmpServer) bmpWorker(client net.Conn) {
 	}()
 	// Create new client info (keyed by client remote address)
 	newClientInfo := newClientInfo()
-	srv.clientsInfo.Add(client.RemoteAddr().String(), *newClientInfo)
-	defer srv.clientsInfo.Del(client.RemoteAddr().String())
+	if err := srv.clientsInfo.Add(client.RemoteAddr().String(), *newClientInfo); err != nil {
+		glog.Errorf("Failed to add client (already added) %s, %+v: %+v", client.RemoteAddr().String(), *newClientInfo, err)
+	}
 
 	var msgQueue chan interface{}
 	var storeStop chan struct{}
@@ -162,6 +163,10 @@ func (srv *bmpServer) bmpWorker(client net.Conn) {
 		if storeStop != nil {
 			close(storeStop)
 		}
+		if err := srv.clientsInfo.Del(client.RemoteAddr().String()); err != nil {
+			glog.Errorf("Failed to del client %s, %+v: %+v", client.RemoteAddr().String(), *newClientInfo, err)
+		}
+
 	}()
 	for {
 		headerMsg := make([]byte, bmp.CommonHeaderLength)

@@ -12,9 +12,13 @@ type Store struct {
 func (s *Store) store(msg interface{}) {
 	switch v := msg.(type) {
 	case message.LSNode:
-		s.bgpls.UpdateNode(&v)
+		if err := s.bgpls.UpdateNode(&v); err != nil {
+			glog.Errorf("UpdateNode(%+v) failed:%+v", v, err)
+		}
 	case message.LSLink:
-		s.bgpls.UpdateLink(&v)
+		if err := s.bgpls.UpdateLink(&v); err != nil {
+			glog.Errorf("UpdateLink(%+v) failed:%+v", v, err)
+		}
 	default:
 	}
 }
