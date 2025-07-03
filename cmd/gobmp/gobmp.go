@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -12,13 +13,16 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/golang/glog"
+	"github.com/sbezverk/gobmp/pkg/api/generated"
 	"github.com/sbezverk/gobmp/pkg/dumper"
 	"github.com/sbezverk/gobmp/pkg/filer"
 	"github.com/sbezverk/gobmp/pkg/gobmpsrv"
+	"github.com/sbezverk/gobmp/pkg/grpcsrv"
 	"github.com/sbezverk/gobmp/pkg/kafka"
 	"github.com/sbezverk/gobmp/pkg/nats"
 	"github.com/sbezverk/gobmp/pkg/pub"
 	"github.com/sbezverk/tools"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -119,9 +123,27 @@ func main() {
 	// Starting Interceptor server
 	bmpSrv.Start()
 
+	// Create gRPC server for store services
+	grpcSrv, err := grpcsrv.NewGRPCServer(bmpSrv, registerGRPCStoreServices)
+	if err != nil {
+		glog.Errorf("failed to setup new grpc server with error: %+v", err)
+		os.Exit(1)
+	}
+	grpcSrv.Start()
+
 	stopCh := tools.SetupSignalHandler()
 	<-stopCh
 
 	bmpSrv.Stop()
+	grpcSrv.Stop(context.Background())
 	os.Exit(0)
+}
+
+// registerGRPCStoreServices is responsible for instantiating the gRPC store services and to register them with the gRPC server
+func registerGRPCStoreServices(s *grpc.Server, bmpsrv gobmpsrv.BMPServer) error {
+	// Create & register StoreContents service server
+	storeContentsServer := grpcsrv.NewStoreContentsServer(bmpsrv)
+	generated.RegisterStoreContentsServiceServer(s, storeContentsServer)
+
+	return nil
 }

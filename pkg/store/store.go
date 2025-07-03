@@ -1,12 +1,18 @@
 package store
 
 import (
+	"reflect"
+
 	"github.com/golang/glog"
 	"github.com/sbezverk/gobmp/pkg/message"
 )
 
 type Store struct {
 	bgpls BGPLSStore
+}
+
+func (s *Store) GetBGPLS() *BGPLSStore {
+	return &s.bgpls
 }
 
 func (s *Store) store(msg interface{}) {
@@ -35,26 +41,13 @@ func (s *Store) Store(msgQueue chan interface{}, stop chan struct{}) {
 	}
 }
 
-func (s *Store) Get() *StoreContents {
-	contents := NewStoreContents()
-
-	// Get the contents
-	contents.bgpls = s.bgpls.Get()
-	return contents
-}
-
 func NewStore() *Store {
 	return &Store{
 		bgpls: *NewBGPLSStore(),
 	}
 }
 
-type StoreContents struct {
-	bgpls *BGPLSStoreContents
-}
-
-func NewStoreContents() *StoreContents {
-	return &StoreContents{
-		bgpls: NewBGPLSStoreContents(),
-	}
+// Returns true if v is a valid value and not zero/empty
+func IsValidNonZero(v any) bool {
+	return reflect.ValueOf(v).IsValid() && !reflect.ValueOf(v).IsZero()
 }

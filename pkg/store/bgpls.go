@@ -24,8 +24,6 @@ type BGPLSStore struct {
 	// Read-write mutex to allow multiple readers
 	mutex sync.RWMutex
 
-	// What is in the store
-	//state BGPLSStoreContents
 	// BGP-LS nodes
 	nodes map[nodeKey]message.LSNode
 	// BGP-LS links
@@ -106,6 +104,25 @@ func (s *BGPLSStore) Get() *BGPLSStoreContents {
 	return contents
 }
 
+// The following is used when the caller has to transform what is in the store, it avoids
+// double-traversal of the data which would happen with a call to Get() above followed by
+// transformation of each entry
+type GetLinkCB func(*message.LSLink)
+type GetNodeCB func(*message.LSNode)
+
+func (s *BGPLSStore) GetLinks(cb GetLinkCB) {
+	for _, link := range s.links {
+		cb(&link)
+	}
+}
+
+func (s *BGPLSStore) GetNodes(cb GetNodeCB) {
+	for _, node := range s.nodes {
+		cb(&node)
+	}
+}
+
+// New functions
 func NewBGPLSStoreContents() *BGPLSStoreContents {
 	return &BGPLSStoreContents{}
 }

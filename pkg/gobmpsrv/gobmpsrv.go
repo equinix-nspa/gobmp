@@ -18,7 +18,7 @@ import (
 type BMPServer interface {
 	Start()
 	Stop()
-	GetStoreContents() *store.StoreContents
+	GetStore() *store.Store
 }
 
 // Per-client info
@@ -41,6 +41,7 @@ func (c *clientsInfo) Add(clientRemoteAddr string, info clientInfo) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	glog.Infof("Adding client %s", clientRemoteAddr)
 	if val, ok := c.info[clientRemoteAddr]; ok {
 		return fmt.Errorf("%+v already present with %+v", clientRemoteAddr, val)
 	}
@@ -52,7 +53,7 @@ func (c *clientsInfo) Del(clientRemoteAddr string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if _, ok := c.info[clientRemoteAddr]; ok {
+	if _, ok := c.info[clientRemoteAddr]; !ok {
 		return fmt.Errorf("%+v not present", clientRemoteAddr)
 	}
 	delete(c.info, clientRemoteAddr)
@@ -103,13 +104,13 @@ func (srv *bmpServer) server() {
 	}
 }
 
-func (srv *bmpServer) GetStoreContents() *store.StoreContents {
+func (srv *bmpServer) GetStore() *store.Store {
 	if srv.clientsInfo == nil {
 		return nil
 	}
 	// Pick the first client
 	for _, client := range srv.clientsInfo.info {
-		return client.store.Get()
+		return client.store
 	}
 	return nil
 }
