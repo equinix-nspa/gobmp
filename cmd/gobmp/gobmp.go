@@ -129,13 +129,21 @@ func main() {
 		glog.Errorf("failed to setup new grpc server with error: %+v", err)
 		os.Exit(1)
 	}
-	grpcSrv.Start()
+	err = grpcSrv.Start()
+	if err != nil {
+		glog.Errorf("failed to start grpc server with error: %+v", err)
+		os.Exit(1)
+	}
 
 	stopCh := tools.SetupSignalHandler()
 	<-stopCh
 
 	bmpSrv.Stop()
-	grpcSrv.Stop(context.Background())
+	err = grpcSrv.Stop(context.Background())
+	if err != nil {
+		glog.Errorf("failed to stop grpc server with error: %+v", err)
+		os.Exit(1)
+	}
 	os.Exit(0)
 }
 
