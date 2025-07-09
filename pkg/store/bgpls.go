@@ -13,11 +13,11 @@ type nodeKey struct {
 	Name        string
 }
 
-// For links, key is [router-id, local IP, remote-IP]
+// For links, key is [router-id, local-link IP, remote-link IP]
 type linkKey struct {
-	IGPRouterId string
-	RouterIP    string
-	PeerIP      string
+	IGPRouterId  string
+	LocalLinkIP  string
+	RemoteLinkIP string
 }
 
 type BGPLSStore struct {
@@ -47,12 +47,12 @@ func (s *BGPLSStore) UpdateLink(link *message.LSLink) error {
 
 	// Check for empty strings
 	if link.IGPRouterID == "" || link.RouterIP == "" || link.PeerIP == "" {
-		return fmt.Errorf("Empty string not expected in %+v", link)
+		return fmt.Errorf("Empty string not expected in [%s,%s,%s] part of <%+v>", link.IGPRouterID, link.RouterIP, link.PeerIP, link)
 	}
 	key := linkKey{
-		IGPRouterId: link.IGPRouterID,
-		RouterIP:    link.RouterIP,
-		PeerIP:      link.PeerIP,
+		IGPRouterId:  link.IGPRouterID,
+		LocalLinkIP:  link.LocalLinkIP,
+		RemoteLinkIP: link.RemoteLinkIP,
 	}
 	switch link.Action {
 	case "add":
@@ -71,8 +71,10 @@ func (s *BGPLSStore) UpdateNode(node *message.LSNode) error {
 	defer s.mutex.Unlock()
 
 	// Check for empty strings
-	if node.IGPRouterID == "" || node.Name == "" {
-		return fmt.Errorf("Empty string not expected in %+v", node)
+	// TBD struggling to add node name with gobgp 3.37
+	//	if node.IGPRouterID == "" || node.Name == "" {
+	if node.IGPRouterID == "" && node.Name == "" {
+		return fmt.Errorf("Empty string not expected in [%s, %s] part of <%+v>", node.IGPRouterID, node.Name, node)
 	}
 	key := nodeKey{
 		IGPRouterId: node.IGPRouterID,

@@ -202,6 +202,7 @@ func GetBGPLS(bgplsStore *store.BGPLSStore) *generated.GetLSResponse {
 			pbNode.ProtocolId = uint32(msg.ProtocolID)
 		}
 		if store.IsValidNonZero(msg.NodeFlags) {
+			pbNode.NodeFlags = &generated.LSNodeAttrFlags{}
 			pbNode.NodeFlags.OFlag = msg.NodeFlags.OFlag
 			pbNode.NodeFlags.TFlag = msg.NodeFlags.TFlag
 			pbNode.NodeFlags.EFlag = msg.NodeFlags.EFlag

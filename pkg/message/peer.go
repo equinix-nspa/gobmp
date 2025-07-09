@@ -51,6 +51,7 @@ func (p *producer) producePeerMessage(op int, msg bmp.Message) {
 		m.LocalBGPID = net.IP(peerUpMsg.SentOpen.BGPID).To4().String()
 		m.IsIPv4 = !msg.PeerHeader.IsRemotePeerIPv6()
 		m.LocalIP = peerUpMsg.GetLocalAddressString()
+		glog.Infof("PeerUp msg from %s:%d for %s:%d", m.LocalIP, m.LocalPort, m.RemoteIP, m.RemotePort)
 		// Saving local bgp speaker identities.
 		p.speakerIP = m.LocalIP
 		p.speakerHash = fmt.Sprintf("%x", md5.Sum([]byte(p.speakerIP)))

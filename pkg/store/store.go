@@ -17,19 +17,21 @@ func (s *Store) GetBGPLS() *BGPLSStore {
 
 func (s *Store) store(msg interface{}) {
 	switch v := msg.(type) {
-	case message.LSNode:
-		if err := s.bgpls.UpdateNode(&v); err != nil {
+	case *message.LSNode:
+		if err := s.bgpls.UpdateNode(v); err != nil {
 			glog.Errorf("UpdateNode(%+v) failed:%+v", v, err)
 		}
-	case message.LSLink:
-		if err := s.bgpls.UpdateLink(&v); err != nil {
+	case *message.LSLink:
+		if err := s.bgpls.UpdateLink(v); err != nil {
 			glog.Errorf("UpdateLink(%+v) failed:%+v", v, err)
 		}
 	default:
+		glog.Error("Unsupported message type %+v", v)
 	}
 }
 
 func (s *Store) Store(msgQueue chan interface{}, stop chan struct{}) {
+	glog.Info("Starting Store() function")
 	for {
 		select {
 		case msg := <-msgQueue:

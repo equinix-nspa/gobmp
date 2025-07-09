@@ -53,6 +53,7 @@ func (c *clientsInfo) Del(clientRemoteAddr string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	glog.Infof("Removing client %s", clientRemoteAddr)
 	if _, ok := c.info[clientRemoteAddr]; !ok {
 		return fmt.Errorf("%+v not present", clientRemoteAddr)
 	}
