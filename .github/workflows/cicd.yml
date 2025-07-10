@@ -84,5 +84,6 @@ jobs:
           docker ps -a
           docker logs gobmp
           docker logs xr-1
+          docker logs kafka
           exit 1
 
