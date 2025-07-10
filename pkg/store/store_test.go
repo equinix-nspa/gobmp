@@ -59,10 +59,10 @@ func TestLink(t *testing.T) {
 	s := store.NewBGPLSStore()
 
 	link := message.LSLink{
-		Action:      "add",
-		IGPRouterID: "abcd",
-		RouterIP:    "1.1.1.1",
-		PeerIP:      "2.2.2.2"}
+		Action:       "add",
+		IGPRouterID:  "abcd",
+		LocalLinkIP:  "1.1.1.1",
+		RemoteLinkIP: "2.2.2.2"}
 	err := s.UpdateLink(&link)
 	require.Nil(t, err)
 	// 1 link expected
