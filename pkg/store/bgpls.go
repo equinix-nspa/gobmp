@@ -46,8 +46,8 @@ func (s *BGPLSStore) UpdateLink(link *message.LSLink) error {
 	defer s.mutex.Unlock()
 
 	// Check for empty strings
-	if link.IGPRouterID == "" || link.RouterIP == "" || link.PeerIP == "" {
-		return fmt.Errorf("Empty string not expected in [%s,%s,%s] part of <%+v>", link.IGPRouterID, link.RouterIP, link.PeerIP, link)
+	if link.IGPRouterID == "" || link.LocalLinkIP == "" || link.RemoteLinkIP == "" {
+		return fmt.Errorf("Empty string not expected in [%s,%s,%s] part of <%+v>", link.IGPRouterID, link.LocalLinkIP, link.RemoteLinkIP, link)
 	}
 	key := linkKey{
 		IGPRouterId:  link.IGPRouterID,
