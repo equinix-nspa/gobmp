@@ -47,7 +47,7 @@ func (s *BGPLSStore) UpdateLink(link *message.LSLink) error {
 
 	// Check for empty strings
 	if link.IGPRouterID == "" || link.LocalLinkIP == "" || link.RemoteLinkIP == "" {
-		return fmt.Errorf("Empty string not expected in [%s,%s,%s] part of <%+v>", link.IGPRouterID, link.LocalLinkIP, link.RemoteLinkIP, link)
+		return fmt.Errorf("empty string not expected in [%s,%s,%s] part of <%+v>", link.IGPRouterID, link.LocalLinkIP, link.RemoteLinkIP, link)
 	}
 	key := linkKey{
 		IGPRouterId:  link.IGPRouterID,
@@ -60,7 +60,7 @@ func (s *BGPLSStore) UpdateLink(link *message.LSLink) error {
 	case "del":
 		delete(s.links, key)
 	default:
-		return fmt.Errorf("Unexpected action in %+v", link)
+		return fmt.Errorf("unexpected action in %+v", link)
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ func (s *BGPLSStore) UpdateNode(node *message.LSNode) error {
 	// TBD struggling to add node name with gobgp 3.37
 	//	if node.IGPRouterID == "" || node.Name == "" {
 	if node.IGPRouterID == "" && node.Name == "" {
-		return fmt.Errorf("Empty string not expected in [%s, %s] part of <%+v>", node.IGPRouterID, node.Name, node)
+		return fmt.Errorf("empty string not expected in [%s, %s] part of <%+v>", node.IGPRouterID, node.Name, node)
 	}
 	key := nodeKey{
 		IGPRouterId: node.IGPRouterID,
@@ -86,7 +86,7 @@ func (s *BGPLSStore) UpdateNode(node *message.LSNode) error {
 	case "del":
 		delete(s.nodes, key)
 	default:
-		return fmt.Errorf("Unexpected action in %+v", node)
+		return fmt.Errorf("unexpected action in %+v", node)
 	}
 	return nil
 }
