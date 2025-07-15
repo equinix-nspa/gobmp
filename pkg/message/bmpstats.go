@@ -58,7 +58,7 @@ func (p *producer) produceStatsMessage(msg bmp.Message) {
 		case 12:
 			m.PrefixesAsWithdraw = binary.BigEndian.Uint32(tlv.Information)
 		default:
-			glog.Warningf("unprocessed stats type:%v", tlv.InformationType)
+			// TBD glog.Warningf("unprocessed stats type:%v", tlv.InformationType)
 		}
 	}
 	if err := p.marshalAndPublish(&m, bmp.StatsReportMsg, []byte(m.RouterHash), false); err != nil {

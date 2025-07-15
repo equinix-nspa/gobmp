@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package gobmp.api;
+
+option go_package = "pkg/api/generated";
+
+service StoreContentsService {
+  // Call to get contents
+  rpc Get(GetRequest) returns (GetResponse);
+}
+
+message GetRequest {
+
+}
+
+message GetResponse {
+  // BGP-LS only for now
+  GetLSResponse bgp_ls= 1;
+}
+
+message GetLSResponse {
+  repeated LSNode nodes = 1;
+  repeated LSLink links = 2;
+}
+
+// Multi-topology and SR not in there for the moment (not needed right now)
+message LSNode {
+  string key = 1;
+  string id = 2;
+  string rev = 3;
+  int32 sequence = 4;
+  string hash = 5;
+  string router_hash = 6;
+  int64 domain_id = 7;
+  string router_ip = 8;
+  string peer_hash = 9;
+  string peer_ip = 10;
+  uint32 peer_type = 11;
+  uint32 peer_asn = 12;
+  string timestamp = 13;
+  string igp_router_id = 14;
+  string router_id = 15;
+  uint32 asn = 16;
+  uint32 lsid = 17;
+  string area_id = 18;
+  string protocol = 19;
+  uint32 protocol_id = 20;
+  LSNodeAttrFlags node_flags = 21;
+  string name = 22;
+  bool is_adj_rib_in_post = 23;
+  bool is_adj_rib_out_post = 24;
+  bool is_local_rib_filtered = 25;
+}
+
+message LSNodeAttrFlags {
+  bool o_flag = 1;
+  bool t_flag = 2;
+  bool e_flag = 3;
+  bool b_flag = 4;
+  bool r_flag = 5;
+  bool f_flag = 6;
+}
+
+message LSLink {
+  string key = 1;
+  string id = 2;
+  string rev = 3;
+  int32 sequence = 4;
+  string hash = 5;
+  string router_hash = 6;
+  int64 domain_id = 7;
+  string router_ip = 8;
+  string peer_hash = 9;
+  string peer_ip = 10;
+  uint32 peer_type = 11;
+  uint32 peer_asn = 12;
+  string timestamp = 13;
+  string igp_router_id = 14;
+  string router_id = 15;
+  uint32 lsid = 16;
+  string area_id = 17;
+  string protocol = 18;
+  uint32 protocol_id = 19;
+  string next_hop = 20;
+  uint32 local_link_id = 21;
+  uint32 remote_link_id = 22;
+  string local_link_ip = 23;
+  string remote_link_ip = 24;
+  uint32 igp_metric = 25;
+  uint32 admin_grpup = 26;
+  uint32 max_link_bw = 27;
+  uint32 max_resv_bw = 28;
+  uint32 te_default_metric = 29;
+  uint32 link_protection = 30;
+  uint32 mpls_proto_mask = 31;
+  string link_name = 32;
+  string remote_node_hash = 33;
+  string local_node_hash = 34;
+  string remote_igp_router_id = 35;
+  string remote_router_id = 36;
+  uint32 local_node_asn = 37;
+  uint32 remote_node_asn = 38;
+  string bgp_router_id = 39;
+  string bgp_remote_router_id = 40;
+  uint32 member_as = 41;
+  uint32 unidir_link_delay = 42;
+  repeated uint32 unidir_link_delay_min_max = 43;
+  uint32 unidir_link_delay_variation = 44;
+  uint32 unidir_packet_loss = 45;
+  uint32 unidir_residual_bw = 46;
+  uint32 unidir_available_bw = 47;
+  uint32 unidir_bw_utilization = 48;
+  bool is_adj_rib_in_post = 49;
+  bool is_adj_rib_out_post = 50;
+  bool is_local_rib_filtered = 51;
+}

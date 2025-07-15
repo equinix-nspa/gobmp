@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -12,26 +13,30 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/golang/glog"
+	"github.com/sbezverk/gobmp/pkg/api/generated"
 	"github.com/sbezverk/gobmp/pkg/dumper"
 	"github.com/sbezverk/gobmp/pkg/filer"
 	"github.com/sbezverk/gobmp/pkg/gobmpsrv"
+	"github.com/sbezverk/gobmp/pkg/grpcsrv"
 	"github.com/sbezverk/gobmp/pkg/kafka"
 	"github.com/sbezverk/gobmp/pkg/nats"
 	"github.com/sbezverk/gobmp/pkg/pub"
 	"github.com/sbezverk/tools"
+	"google.golang.org/grpc"
 )
 
 var (
-	dstPort   int
-	srcPort   int
-	perfPort  int
-	kafkaSrv  string
+	dstPort           int
+	srcPort           int
+	perfPort          int
+	kafkaSrv          string
 	kafkaTpRetnTimeMs string // Kafka topic retention time in ms
-	natsSrv   string
-	intercept string
-	splitAF   string
-	dump      string
-	file      string
+	natsSrv           string
+	intercept         string
+	splitAF           string
+	dump              string
+	file              string
+	storeData         string
 )
 
 func init() {
@@ -46,6 +51,7 @@ func init() {
 	flag.IntVar(&perfPort, "performance-port", 56767, "port used for performance debugging")
 	flag.StringVar(&dump, "dump", "", "Dump resulting messages to file when \"dump=file\", to standard output when \"dump=console\" or to NATS when \"dump=nats\"")
 	flag.StringVar(&file, "msg-file", "/tmp/messages.json", "Full path anf file name to store messages when \"dump=file\"")
+	flag.StringVar(&storeData, "store-data", "false", "When store-data is set to \"true\", the supported (BGP-LS only for now) BMP state will be stored and accesible through API")
 }
 
 func main() {
@@ -82,7 +88,7 @@ func main() {
 		glog.V(5).Infof("NATS publisher has been successfully initialized.")
 	default:
 		kConfig := &kafka.Config{
-			ServerAddress: kafkaSrv,
+			ServerAddress:        kafkaSrv,
 			TopicRetentionTimeMs: kafkaTpRetnTimeMs,
 		}
 		publisher, err = kafka.NewKafkaPublisher(kConfig)
@@ -104,7 +110,12 @@ func main() {
 		glog.Errorf("failed to parse to bool the value of the intercept flag with error: %+v", err)
 		os.Exit(1)
 	}
-	bmpSrv, err := gobmpsrv.NewBMPServer(srcPort, dstPort, interceptFlag, publisher, splitAFFlag)
+	storeDataFlag, err := strconv.ParseBool(storeData)
+	if err != nil {
+		glog.Errorf("failed to parse to bool the value of the store-data flag with error: %+v", err)
+		os.Exit(1)
+	}
+	bmpSrv, err := gobmpsrv.NewBMPServer(srcPort, dstPort, interceptFlag, publisher, splitAFFlag, storeDataFlag)
 	if err != nil {
 		glog.Errorf("failed to setup new gobmp server with error: %+v", err)
 		os.Exit(1)
@@ -112,9 +123,35 @@ func main() {
 	// Starting Interceptor server
 	bmpSrv.Start()
 
+	// Create gRPC server for store services
+	grpcSrv, err := grpcsrv.NewGRPCServer(bmpSrv, registerGRPCStoreServices)
+	if err != nil {
+		glog.Errorf("failed to setup new grpc server with error: %+v", err)
+		os.Exit(1)
+	}
+	err = grpcSrv.Start()
+	if err != nil {
+		glog.Errorf("failed to start grpc server with error: %+v", err)
+		os.Exit(1)
+	}
+
 	stopCh := tools.SetupSignalHandler()
 	<-stopCh
 
 	bmpSrv.Stop()
+	err = grpcSrv.Stop(context.Background())
+	if err != nil {
+		glog.Errorf("failed to stop grpc server with error: %+v", err)
+		os.Exit(1)
+	}
 	os.Exit(0)
+}
+
+// registerGRPCStoreServices is responsible for instantiating the gRPC store services and to register them with the gRPC server
+func registerGRPCStoreServices(s *grpc.Server, bmpsrv gobmpsrv.BMPServer) error {
+	// Create & register StoreContents service server
+	storeContentsServer := grpcsrv.NewStoreContentsServer(bmpsrv)
+	generated.RegisterStoreContentsServiceServer(s, storeContentsServer)
+
+	return nil
 }
