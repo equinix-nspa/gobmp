@@ -7,10 +7,12 @@ import (
 	"github.com/sbezverk/gobmp/pkg/message"
 )
 
-// For nodes, key is [router-id+name]
+// For nodes, key is [router-id+Asn+Lsid], as per sections 3.2.1.1 and 3.2.1.4 of RFC7752,
+// We do not use name as part of the key since it is optional as per https://datatracker.ietf.org/doc/html/rfc7752#section-3.3.1.3
 type nodeKey struct {
 	IGPRouterId string
-	Name        string
+	Asn         uint32
+	Lsid        uint32
 }
 
 // For links, key is [router-id, local-link IP, remote-link IP]
@@ -70,15 +72,14 @@ func (s *BGPLSStore) UpdateNode(node *message.LSNode) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Check for empty strings
-	// TBD struggling to add node name with gobgp 3.37
-	//	if node.IGPRouterID == "" || node.Name == "" {
-	if node.IGPRouterID == "" && node.Name == "" {
-		return fmt.Errorf("empty string not expected in [%s, %s] part of <%+v>", node.IGPRouterID, node.Name, node)
+	// Check for empty values
+	if node.IGPRouterID == "" || node.LSID == 0 || node.ASN == 0 {
+		return fmt.Errorf("empty values not expected in <%+v>", node)
 	}
 	key := nodeKey{
 		IGPRouterId: node.IGPRouterID,
-		Name:        node.Name,
+		Asn:         node.ASN,
+		Lsid:        node.LSID,
 	}
 	switch node.Action {
 	case "add":

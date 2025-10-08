@@ -35,11 +35,44 @@ func TestUpdateLinkErrorUnsupportedAction(t *testing.T) {
 	checkStoreContentLengths(t, s, 0, 0)
 }
 
-func TestUpdateNodeErrorEmptyString(t *testing.T) {
+func TestUpdateNodeErrorEmpty(t *testing.T) {
 	s := store.NewBGPLSStore()
 
 	err := s.UpdateNode(&message.LSNode{Action: "add"})
-	require.NotNil(t, err)
+	require.ErrorContains(t, err, "empty values not expected")
+
+	checkStoreContentLengths(t, s, 0, 0)
+}
+
+func TestUpdateNodeErrorNoRouterid(t *testing.T) {
+	s := store.NewBGPLSStore()
+
+	err := s.UpdateNode(&message.LSNode{Action: "add",
+		ASN:  117,
+		LSID: 2000})
+	require.ErrorContains(t, err, "empty values not expected")
+
+	checkStoreContentLengths(t, s, 0, 0)
+}
+
+func TestUpdateNodeErrorNoAsn(t *testing.T) {
+	s := store.NewBGPLSStore()
+
+	err := s.UpdateNode(&message.LSNode{Action: "add",
+		IGPRouterID: "abcd",
+		LSID:        2000})
+	require.ErrorContains(t, err, "empty values not expected")
+
+	checkStoreContentLengths(t, s, 0, 0)
+}
+
+func TestUpdateNodeErrorNoLsid(t *testing.T) {
+	s := store.NewBGPLSStore()
+
+	err := s.UpdateNode(&message.LSNode{Action: "add",
+		ASN:         117,
+		IGPRouterID: "abcd"})
+	require.ErrorContains(t, err, "empty values not expected")
 
 	checkStoreContentLengths(t, s, 0, 0)
 }
@@ -49,7 +82,8 @@ func TestUpdateNodeErrorUnsupportedAction(t *testing.T) {
 
 	err := s.UpdateNode(&message.LSNode{Action: "",
 		IGPRouterID: "abcd",
-		Name:        "nodename"})
+		LSID:        2000,
+		ASN:         786})
 	require.NotNil(t, err)
 
 	checkStoreContentLengths(t, s, 0, 0)
@@ -87,13 +121,14 @@ func TestNode(t *testing.T) {
 	node := message.LSNode{
 		Action:      "add",
 		IGPRouterID: "abcd",
-		Name:        "node"}
+		LSID:        1000,
+		ASN:         786}
 	err := s.UpdateNode(&node)
 	require.Nil(t, err)
 	// 1 node expected
 	checkStoreContentLengths(t, s, 0, 1)
 
-	// Add the same link
+	// Add the same node again
 	err = s.UpdateNode(&node)
 	require.Nil(t, err)
 	// 1 node expected
