@@ -48,7 +48,7 @@ func (c *clientsInfo) Update(client net.Conn) (*clientInfo, error) {
 	connRemoteAddr := client.RemoteAddr().String()
 	addr, port, err := net.SplitHostPort(connRemoteAddr)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot split %s, err:%s", connRemoteAddr, err)
+		return nil, fmt.Errorf("cannot split %s, err:%s", connRemoteAddr, err)
 	}
 	glog.Infof("Updating client %s", addr)
 	if _, ok := c.info[addr]; !ok {
@@ -68,7 +68,7 @@ func (c *clientsInfo) Delete(client net.Conn) error {
 	connRemoteAddr := client.RemoteAddr().String()
 	addr, port, err := net.SplitHostPort(connRemoteAddr)
 	if err != nil {
-		return fmt.Errorf("Cannot split %s, err:%s", connRemoteAddr, err)
+		return fmt.Errorf("cannot split %s, err:%s", connRemoteAddr, err)
 	}
 
 	glog.Infof("Removing client %s", connRemoteAddr)
