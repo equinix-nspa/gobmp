@@ -23,41 +23,64 @@ type BMPServer interface {
 
 // Per-client info
 type clientInfo struct {
+	ports map[string]struct{}
 	store *store.Store
 }
 
 func newClientInfo() *clientInfo {
 	return &clientInfo{
+		ports: make(map[string]struct{}),
 		store: store.NewStore(),
 	}
 }
 
 type clientsInfo struct {
 	mutex sync.RWMutex
-	info  map[string]clientInfo
+	// The key is the IP address of the client (since a client may use multipel connections)
+	info map[string]clientInfo
 }
 
-func (c *clientsInfo) Add(clientRemoteAddr string, info clientInfo) error {
+func (c *clientsInfo) Update(client net.Conn) (*clientInfo, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	glog.Infof("Adding client %s", clientRemoteAddr)
-	if val, ok := c.info[clientRemoteAddr]; ok {
-		return fmt.Errorf("%+v already present with %+v", clientRemoteAddr, val)
+	// connRemoteAddr is host:port
+	connRemoteAddr := client.RemoteAddr().String()
+	addr, port, err := net.SplitHostPort(connRemoteAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot split %s, err:%s", connRemoteAddr, err)
 	}
-	c.info[clientRemoteAddr] = info
-	return nil
+	glog.Infof("Updating client %s", addr)
+	if _, ok := c.info[addr]; !ok {
+		glog.Infof("Creating client %s", addr)
+		c.info[addr] = *newClientInfo()
+	}
+	clientInfo := c.info[addr]
+	clientInfo.ports[port] = struct{}{}
+	return &clientInfo, nil
 }
 
-func (c *clientsInfo) Del(clientRemoteAddr string) error {
+func (c *clientsInfo) Delete(client net.Conn) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	glog.Infof("Removing client %s", clientRemoteAddr)
-	if _, ok := c.info[clientRemoteAddr]; !ok {
-		return fmt.Errorf("%+v not present", clientRemoteAddr)
+	// connRemoteAddr is host:port
+	connRemoteAddr := client.RemoteAddr().String()
+	addr, port, err := net.SplitHostPort(connRemoteAddr)
+	if err != nil {
+		return fmt.Errorf("Cannot split %s, err:%s", connRemoteAddr, err)
 	}
-	delete(c.info, clientRemoteAddr)
+
+	glog.Infof("Removing client %s", connRemoteAddr)
+	if clientInfo, ok := c.info[addr]; !ok {
+		return fmt.Errorf("%+v not present", connRemoteAddr)
+	} else {
+		delete(clientInfo.ports, port)
+		glog.Infof("Removed %s, ports left for %s:%+v", connRemoteAddr, addr, clientInfo.ports)
+		if len(clientInfo.ports) == 0 {
+			delete(c.info, addr)
+		}
+	}
 	return nil
 }
 
@@ -120,10 +143,10 @@ func (srv *bmpServer) bmpWorker(client net.Conn) {
 	defer func() {
 		_ = client.Close()
 	}()
-	// Create new client info (keyed by client remote address)
-	newClientInfo := newClientInfo()
-	if err := srv.clientsInfo.Add(client.RemoteAddr().String(), *newClientInfo); err != nil {
-		glog.Errorf("Failed to add client (already added) %s, %+v: %+v", client.RemoteAddr().String(), *newClientInfo, err)
+	// Update clients info
+	clientInfo, err := srv.clientsInfo.Update(client)
+	if err != nil {
+		glog.Errorf("Failed to update client %s, %+v", client.RemoteAddr().String(), err)
 	}
 
 	var msgQueue chan interface{}
@@ -133,11 +156,10 @@ func (srv *bmpServer) bmpWorker(client net.Conn) {
 		msgQueue = make(chan interface{})
 		storeStop = make(chan struct{})
 		// Start a goroutine to handle the messages from producer and store them
-		go newClientInfo.store.Store(msgQueue, storeStop)
+		go clientInfo.store.Store(msgQueue, storeStop)
 	}
 
 	var server net.Conn
-	var err error
 	if srv.intercept {
 		server, err = net.Dial("tcp", ":"+fmt.Sprintf("%d", srv.destinationPort))
 		if err != nil {
@@ -165,8 +187,8 @@ func (srv *bmpServer) bmpWorker(client net.Conn) {
 		if storeStop != nil {
 			close(storeStop)
 		}
-		if err := srv.clientsInfo.Del(client.RemoteAddr().String()); err != nil {
-			glog.Errorf("Failed to del client %s, %+v: %+v", client.RemoteAddr().String(), *newClientInfo, err)
+		if err := srv.clientsInfo.Delete(client); err != nil {
+			glog.Errorf("Failed to delete client %s, %+v: %+v", client.RemoteAddr().String(), *clientInfo, err)
 		}
 
 	}()
