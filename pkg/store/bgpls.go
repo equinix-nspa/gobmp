@@ -73,7 +73,7 @@ func (s *BGPLSStore) UpdateNode(node *message.LSNode) error {
 	defer s.mutex.Unlock()
 
 	// Check for empty values
-	if node.IGPRouterID == "" || node.LSID == 0 || node.ASN == 0 {
+	if node.IGPRouterID == "" || node.ASN == 0 {
 		return fmt.Errorf("empty values not expected in <%+v>", node)
 	}
 	key := nodeKey{
