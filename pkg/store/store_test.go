@@ -66,15 +66,16 @@ func TestUpdateNodeErrorNoAsn(t *testing.T) {
 	checkStoreContentLengths(t, s, 0, 0)
 }
 
-func TestUpdateNodeErrorNoLsid(t *testing.T) {
+func TestUpdateNodeNoLsid(t *testing.T) {
 	s := store.NewBGPLSStore()
 
+	// By default LSID would be 0 and this is valid
 	err := s.UpdateNode(&message.LSNode{Action: "add",
 		ASN:         117,
 		IGPRouterID: "abcd"})
-	require.ErrorContains(t, err, "empty values not expected")
+	require.Nil(t, err)
 
-	checkStoreContentLengths(t, s, 0, 0)
+	checkStoreContentLengths(t, s, 0, 1)
 }
 
 func TestUpdateNodeErrorUnsupportedAction(t *testing.T) {
