@@ -44,31 +44,31 @@ var (
 	topicCreateTimeout    = 1 * time.Second
 )
 
-var (
-	// topics defines a list of topic to initialize and connect,
-	// initialization is done as a part of NewKafkaPublisher func.
-	topicNames = []string{
-		PeerTopic,
-		UnicastMessageTopic,
-		UnicastMessageV4Topic,
-		UnicastMessageV6Topic,
-		LSNodeMessageTopic,
-		LSLinkMessageTopic,
-		L3vpnMessageTopic,
-		L3vpnMessageV4Topic,
-		L3vpnMessageV6Topic,
-		LSPrefixMessageTopic,
-		LSSRv6SIDMessageTopic,
-		EVPNMessageTopic,
-		SRPolicyMessageTopic,
-		SRPolicyMessageV4Topic,
-		SRPolicyMessageV6Topic,
-		FlowspecMessageTopic,
-		FlowspecMessageV4Topic,
-		FlowspecMessageV6Topic,
-		StatsMessageTopic,
-	}
-)
+// topics defines a list of topic to initialize and connect,
+// initialization is done as a part of NewKafkaPublisher func.
+var topicNames = []string{
+	PeerTopic,
+	UnicastMessageTopic,
+	UnicastMessageV4Topic,
+	UnicastMessageV6Topic,
+	LSNodeMessageTopic,
+	LSLinkMessageTopic,
+	L3vpnMessageTopic,
+	L3vpnMessageV4Topic,
+	L3vpnMessageV6Topic,
+	LSPrefixMessageTopic,
+	LSSRv6SIDMessageTopic,
+	EVPNMessageTopic,
+	SRPolicyMessageTopic,
+	SRPolicyMessageV4Topic,
+	SRPolicyMessageV6Topic,
+	FlowspecMessageTopic,
+	FlowspecMessageV4Topic,
+	FlowspecMessageV6Topic,
+	StatsMessageTopic,
+}
+
+// SCRAM support removed; SASL/PLAIN only
 
 type publisher struct {
 	broker   *sarama.Broker
@@ -157,6 +157,15 @@ func NewKafkaPublisher(kConfig *Config) (pub.Publisher, error) {
 	config.Producer.Return.Errors = true
 	config.Admin.Retry.Max = 100
 	config.Version = sarama.V1_1_0_0
+
+	// SASL authentication support
+	if kConfig.SASLEnable {
+		config.Net.SASL.Enable = true
+		config.Net.SASL.User = kConfig.SASLUsername
+		config.Net.SASL.Password = kConfig.SASLPassword
+		// Only SASL/PLAIN is supported
+		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+	}
 
 	br := sarama.NewBroker(kConfig.ServerAddress)
 
@@ -300,5 +309,4 @@ func waitForBrokerConnection(br *sarama.Broker, config *sarama.Config, timeout t
 			return fmt.Errorf("timeout waiting for the connection to the broker %s", br.Addr())
 		}
 	}
-
 }

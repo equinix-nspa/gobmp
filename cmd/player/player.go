@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -18,19 +19,54 @@ import (
 )
 
 var (
-	msgSrvAddr string
+	msgSrvAddr      string
 	topicRetnTimeMs string
-	file       string
-	delay      int
-	iterations int
+	file            string
+	delay           int
+	iterations      int
 )
 
 func init() {
-	flag.StringVar(&msgSrvAddr, "message-server", "", "URL to the messages supplying server")
-	flag.StringVar(&topicRetnTimeMs, "topic-retention-time-ms", "900000", "Kafka topic retention time in ms, default is 900000 ms i.e 15 minutes")
-	flag.StringVar(&file, "msg-file", "/tmp/messages.json", "File with the bmp messages to replay")
-	flag.IntVar(&delay, "delay", 0, "Delay in seconds to add between sending messages")
-	flag.IntVar(&iterations, "iterations", 1, "Number of iterations to replay messages")
+	// Set defaults
+	msgSrvAddrDefault := ""
+	topicRetnTimeMsDefault := "900000"
+	fileDefault := "/tmp/messages.json"
+	delayDefault := 0
+	iterationsDefault := 1
+
+	// Start with defaults
+	msgSrvAddr = msgSrvAddrDefault
+	topicRetnTimeMs = topicRetnTimeMsDefault
+	file = fileDefault
+	delay = delayDefault
+	iterations = iterationsDefault
+
+	// Environment variable overrides
+	if val := os.Getenv("GOBMP_MESSAGE_SERVER"); val != "" {
+		msgSrvAddr = val
+	}
+	if val := os.Getenv("GOBMP_TOPIC_RETENTION_TIME_MS"); val != "" {
+		topicRetnTimeMs = val
+	}
+	if val := os.Getenv("GOBMP_MSG_FILE"); val != "" {
+		file = val
+	}
+	if val := os.Getenv("GOBMP_DELAY"); val != "" {
+		if v, err := strconv.Atoi(val); err == nil {
+			delay = v
+		}
+	}
+	if val := os.Getenv("GOBMP_ITERATIONS"); val != "" {
+		if v, err := strconv.Atoi(val); err == nil {
+			iterations = v
+		}
+	}
+	// Flags (CLI overrides env/defaults)
+	flag.StringVar(&msgSrvAddr, "message-server", msgSrvAddr, "URL to the messages supplying server")
+	flag.StringVar(&topicRetnTimeMs, "topic-retention-time-ms", topicRetnTimeMs, "Kafka topic retention time in ms, default is 900000 ms i.e 15 minutes")
+	flag.StringVar(&file, "msg-file", file, "File with the bmp messages to replay")
+	flag.IntVar(&delay, "delay", delay, "Delay in seconds to add between sending messages")
+	flag.IntVar(&iterations, "iterations", iterations, "Number of iterations to replay messages")
 }
 
 func main() {
@@ -46,7 +82,7 @@ func main() {
 
 	// Initializing publisher process
 	kConfig := &kafka.Config{
-		ServerAddress: msgSrvAddr,
+		ServerAddress:        msgSrvAddr,
 		TopicRetentionTimeMs: topicRetnTimeMs,
 	}
 	publisher, err := kafka.NewKafkaPublisher(kConfig)
@@ -82,7 +118,7 @@ func main() {
 		glog.Infof("%3f seconds took to process %d records", time.Since(start).Seconds(), records)
 		records = 0
 	}
-    _ = f.Close()
+	_ = f.Close()
 
 	os.Exit(0)
 }

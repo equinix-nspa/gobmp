@@ -4,6 +4,7 @@ import (
 	"flag"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,11 +23,44 @@ var (
 )
 
 func init() {
-	flag.StringVar(&msgSrvAddr, "kafka", "kafka:9092", "kafka server url, default: kafka:9092")
-	flag.StringVar(&msgFile, "msg-file", "./messages.json", "file to read from or to store to processed bmp messages")
-	flag.IntVar(&timeout, "timeout", 300, "timeout in seconds, default 300, for the test to complete all processing.")
-	flag.BoolVar(&validatorFlag, "validate", false, "when validator is true, incomming messages are validated against stored in the message file, otherwise the messages are stored in the file.")
-	flag.StringVar(&testCase, "test-case", "u4", "test case to validate or to collect messages")
+	// Set defaults
+	msgSrvAddrDefault := "kafka:9092"
+	msgFileDefault := "./messages.json"
+	timeoutDefault := 300
+	validatorFlagDefault := false
+	testCaseDefault := "u4"
+
+	// Start with defaults
+	msgSrvAddr = msgSrvAddrDefault
+	msgFile = msgFileDefault
+	timeout = timeoutDefault
+	validatorFlag = validatorFlagDefault
+	testCase = testCaseDefault
+
+	// Environment variable overrides
+	if val := os.Getenv("GOBMP_KAFKA"); val != "" {
+		msgSrvAddr = val
+	}
+	if val := os.Getenv("GOBMP_MSG_FILE"); val != "" {
+		msgFile = val
+	}
+	if val := os.Getenv("GOBMP_TIMEOUT"); val != "" {
+		if v, err := strconv.Atoi(val); err == nil {
+			timeout = v
+		}
+	}
+	if val := os.Getenv("GOBMP_VALIDATE"); val != "" {
+		validatorFlag = val == "true" || val == "1"
+	}
+	if val := os.Getenv("GOBMP_TEST_CASE"); val != "" {
+		testCase = val
+	}
+	// Flags (CLI overrides env/defaults)
+	flag.StringVar(&msgSrvAddr, "kafka", msgSrvAddr, "kafka server url, default: kafka:9092")
+	flag.StringVar(&msgFile, "msg-file", msgFile, "file to read from or to store to processed bmp messages")
+	flag.IntVar(&timeout, "timeout", timeout, "timeout in seconds, default 300, for the test to complete all processing.")
+	flag.BoolVar(&validatorFlag, "validate", validatorFlag, "when validator is true, incomming messages are validated against stored in the message file, otherwise the messages are stored in the file.")
+	flag.StringVar(&testCase, "test-case", testCase, "test case to validate or to collect messages")
 }
 
 func main() {

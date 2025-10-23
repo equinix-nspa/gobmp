@@ -4,12 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
 
-	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/golang/glog"
@@ -26,32 +26,54 @@ import (
 )
 
 var (
-	dstPort           int
-	srcPort           int
-	perfPort          int
-	kafkaSrv          string
-	kafkaTpRetnTimeMs string // Kafka topic retention time in ms
-	natsSrv           string
-	intercept         string
-	splitAF           string
-	dump              string
-	file              string
-	storeData         string
+	dstPort            int
+	srcPort            int
+	perfPort           int
+	kafkaSrv           string
+	kafkaTpRetnTimeMs  string // Kafka topic retention time in ms
+	natsSrv            string
+	intercept          string
+	splitAF            string
+	dump               string
+	file               string
+	storeData          string
+	kafkaSASLEnable    bool
+	kafkaSASLMechanism string
+	kafkaSASLUsername  string
+	kafkaSASLPassword  string
 )
 
 func init() {
 	runtime.GOMAXPROCS(1)
-	flag.IntVar(&srcPort, "source-port", 5000, "port exposed to outside")
-	flag.IntVar(&dstPort, "destination-port", 5050, "port openBMP is listening")
-	flag.StringVar(&kafkaSrv, "kafka-server", "", "URL to access Kafka server")
-	flag.StringVar(&kafkaTpRetnTimeMs, "kafka-topic-retention-time-ms", "900000", "Kafka topic retention time in ms, default is 900000 ms i.e 15 minutes")
-	flag.StringVar(&natsSrv, "nats-server", "", "URL to access NATS server")
-	flag.StringVar(&intercept, "intercept", "false", "When intercept set \"true\", all incomming BMP messges will be copied to TCP port specified by destination-port, otherwise received BMP messages will be published to Kafka.")
-	flag.StringVar(&splitAF, "split-af", "true", "When set \"true\" (default) ipv4 and ipv6 will be published in separate topics. if set \"false\" the same topic will be used for both address families.")
-	flag.IntVar(&perfPort, "performance-port", 56767, "port used for performance debugging")
-	flag.StringVar(&dump, "dump", "", "Dump resulting messages to file when \"dump=file\", to standard output when \"dump=console\" or to NATS when \"dump=nats\"")
-	flag.StringVar(&file, "msg-file", "/tmp/messages.json", "Full path anf file name to store messages when \"dump=file\"")
-	flag.StringVar(&storeData, "store-data", "false", "When store-data is set to \"true\", the supported (BGP-LS only for now) BMP state will be stored and accesible through API")
+	// Set defaults
+	srcPort = 5000
+	dstPort = 5050
+	kafkaTpRetnTimeMs = "900000"
+	intercept = "false"
+	splitAF = "true"
+	perfPort = 56767
+	file = "/tmp/messages.json"
+	kafkaSASLEnable = false
+	storeData = "false"
+
+	applyEnvOverrides()
+
+	// Flags (CLI overrides env/defaults)
+	flag.IntVar(&srcPort, "source-port", srcPort, "port exposed to outside")
+	flag.IntVar(&dstPort, "destination-port", dstPort, "port openBMP is listening")
+	flag.StringVar(&kafkaSrv, "kafka-server", kafkaSrv, "URL to access Kafka server")
+	flag.StringVar(&kafkaTpRetnTimeMs, "kafka-topic-retention-time-ms", kafkaTpRetnTimeMs, "Kafka topic retention time in ms, default is 900000 ms i.e 15 minutes")
+	flag.StringVar(&natsSrv, "nats-server", natsSrv, "URL to access NATS server")
+	flag.StringVar(&intercept, "intercept", intercept, "When intercept set \"true\", all incomming BMP messges will be copied to TCP port specified by destination-port, otherwise received BMP messages will be published to Kafka.")
+	flag.StringVar(&splitAF, "split-af", splitAF, "When set \"true\" (default) ipv4 and ipv6 will be published in separate topics. if set \"false\" the same topic will be used for both address families.")
+	flag.IntVar(&perfPort, "performance-port", perfPort, "port used for performance debugging")
+	flag.StringVar(&dump, "dump", dump, "Dump resulting messages to file when \"dump=file\", to standard output when \"dump=console\" or to NATS when \"dump=nats\"")
+	flag.StringVar(&file, "msg-file", file, "Full path anf file name to store messages when \"dump=file\"")
+	flag.BoolVar(&kafkaSASLEnable, "kafka-sasl-enable", kafkaSASLEnable, "Enable SASL authentication for Kafka producer")
+	flag.StringVar(&kafkaSASLMechanism, "kafka-sasl-mechanism", kafkaSASLMechanism, "SASL mechanism for Kafka producer (e.g., PLAIN, SCRAM-SHA-256, SCRAM-SHA-512)")
+	flag.StringVar(&kafkaSASLUsername, "kafka-sasl-username", kafkaSASLUsername, "SASL username for Kafka producer")
+	flag.StringVar(&kafkaSASLPassword, "kafka-sasl-password", kafkaSASLPassword, "SASL password for Kafka producer")
+	flag.StringVar(&storeData, "store-data", storeData, "When store-data is set to \"true\", the supported (BGP-LS only for now) BMP state will be stored and accesible through API")
 }
 
 func main() {
@@ -90,6 +112,10 @@ func main() {
 		kConfig := &kafka.Config{
 			ServerAddress:        kafkaSrv,
 			TopicRetentionTimeMs: kafkaTpRetnTimeMs,
+			SASLEnable:           kafkaSASLEnable,
+			SASLMechanism:        kafkaSASLMechanism,
+			SASLUsername:         kafkaSASLUsername,
+			SASLPassword:         kafkaSASLPassword,
 		}
 		publisher, err = kafka.NewKafkaPublisher(kConfig)
 		if err != nil {
@@ -154,4 +180,56 @@ func registerGRPCStoreServices(s *grpc.Server, bmpsrv gobmpsrv.BMPServer) error 
 	generated.RegisterStoreContentsServiceServer(s, storeContentsServer)
 
 	return nil
+}
+
+// applyEnvOverrides sets global config variables from environment variables if present.
+func applyEnvOverrides() {
+	if val := os.Getenv("GOBMP_SOURCE_PORT"); val != "" {
+		if v, err := strconv.Atoi(val); err == nil {
+			srcPort = v
+		}
+	}
+	if val := os.Getenv("GOBMP_DESTINATION_PORT"); val != "" {
+		if v, err := strconv.Atoi(val); err == nil {
+			dstPort = v
+		}
+	}
+	if val := os.Getenv("GOBMP_KAFKA_SERVER"); val != "" {
+		kafkaSrv = val
+	}
+	if val := os.Getenv("GOBMP_KAFKA_TOPIC_RETENTION_TIME_MS"); val != "" {
+		kafkaTpRetnTimeMs = val
+	}
+	if val := os.Getenv("GOBMP_NATS_SERVER"); val != "" {
+		natsSrv = val
+	}
+	if val := os.Getenv("GOBMP_INTERCEPT"); val != "" {
+		intercept = val
+	}
+	if val := os.Getenv("GOBMP_SPLIT_AF"); val != "" {
+		splitAF = val
+	}
+	if val := os.Getenv("GOBMP_PERFORMANCE_PORT"); val != "" {
+		if v, err := strconv.Atoi(val); err == nil {
+			perfPort = v
+		}
+	}
+	if val := os.Getenv("GOBMP_DUMP"); val != "" {
+		dump = val
+	}
+	if val := os.Getenv("GOBMP_MSG_FILE"); val != "" {
+		file = val
+	}
+	if val := os.Getenv("GOBMP_KAFKA_SASL_ENABLE"); val != "" {
+		kafkaSASLEnable = val == "true" || val == "1"
+	}
+	if val := os.Getenv("GOBMP_KAFKA_SASL_MECHANISM"); val != "" {
+		kafkaSASLMechanism = val
+	}
+	if val := os.Getenv("GOBMP_KAFKA_SASL_USERNAME"); val != "" {
+		kafkaSASLUsername = val
+	}
+	if val := os.Getenv("GOBMP_KAFKA_SASL_PASSWORD"); val != "" {
+		kafkaSASLPassword = val
+	}
 }
