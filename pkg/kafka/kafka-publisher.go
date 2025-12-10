@@ -8,12 +8,14 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/golang/glog"
 	"github.com/sbezverk/gobmp/pkg/bmp"
 	"github.com/sbezverk/gobmp/pkg/pub"
+	xdg "github.com/xdg-go/scram"
 )
 
 // Define constants for each topic name
@@ -158,13 +160,8 @@ func NewKafkaPublisher(kConfig *Config) (pub.Publisher, error) {
 	config.Admin.Retry.Max = 100
 	config.Version = sarama.V1_1_0_0
 
-	// SASL authentication support
-	if kConfig.SASLEnable {
-		config.Net.SASL.Enable = true
-		config.Net.SASL.User = kConfig.SASLUsername
-		config.Net.SASL.Password = kConfig.SASLPassword
-		// Only SASL/PLAIN is supported
-		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+	if strings.ToLower(os.Getenv("PUBLISHER_SASL_ENABLE")) == "true" {
+		setSASLParameters(config)
 	}
 
 	br := sarama.NewBroker(kConfig.ServerAddress)
@@ -207,6 +204,37 @@ func NewKafkaPublisher(kConfig *Config) (pub.Publisher, error) {
 		config:   config,
 		producer: producer,
 	}, nil
+}
+
+// Adapter to satisfy sarama.SCRAMClient using xdg-go/scram
+type XDGSCRAMClient struct {
+	client *xdg.Client
+	conv   *xdg.ClientConversation
+}
+
+func (x *XDGSCRAMClient) Begin(userName, password, authzID string) error {
+	// x.client.HashGeneratorFcn must already be set (SHA512 here)
+	c, err := xdg.SHA512.NewClient(userName, password, authzID)
+	if err != nil {
+		return err
+	}
+	x.client = c
+	x.conv = c.NewConversation()
+	return nil
+}
+
+func (x *XDGSCRAMClient) Step(challenge string) (string, error) {
+	return x.conv.Step(challenge)
+}
+
+func (x *XDGSCRAMClient) Done() bool {
+	return x.conv.Done()
+}
+
+// Generator for SCRAM-SHA-512
+func scramSHA512Generator() sarama.SCRAMClient {
+	// No args here; just return a fresh adapter
+	return &XDGSCRAMClient{}
 }
 
 func validator(kConfig *Config) error {
@@ -277,6 +305,36 @@ func ensureTopic(br *sarama.Broker, timeout time.Duration, topicName string, kCo
 			return fmt.Errorf("timeout waiting for topic %s", topicName)
 		}
 	}
+}
+
+func setSASLParameters(config *sarama.Config) {
+	config.Net.SASL.Enable = true
+
+	topicUsernameEnvVar := os.Getenv("PUBLISH_TOPIC_USERNAME")
+	if topicUsernameEnvVar == "" {
+		glog.Warning("PUBLISH_TOPIC_USERNAME env var not set")
+	} else {
+		config.Net.SASL.User = topicUsernameEnvVar
+	}
+
+	topicPasswordEnvVar := os.Getenv("PUBLISH_TOPIC_PASSWORD")
+	if topicPasswordEnvVar == "" {
+		glog.Warning("PUBLISH_TOPIC_PASSWORD env var not set")
+	} else {
+		config.Net.SASL.Password = topicPasswordEnvVar
+	}
+
+	topicMechanismEnvVar := os.Getenv("PUBLISH_TOPIC_MECHANISM")
+	if topicMechanismEnvVar == "" {
+		config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+		config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient {
+			return scramSHA512Generator()
+		}
+	} else {
+		config.Net.SASL.Mechanism = sarama.SASLMechanism(topicMechanismEnvVar)
+	}
+
+	config.Net.SASL.Handshake = true
 }
 
 func waitForBrokerConnection(br *sarama.Broker, config *sarama.Config, timeout time.Duration) error {
