@@ -8,12 +8,20 @@ import (
 )
 
 func TestSetSASLParameters_AllEnvVarsSet(t *testing.T) {
-	os.Setenv("PUBLISH_TOPIC_USERNAME", "testuser")
-	os.Setenv("PUBLISH_TOPIC_PASSWORD", "testpassword")
-	os.Setenv("PUBLISH_TOPIC_MECHANISM", "SCRAM-SHA-512")
-	defer os.Unsetenv("PUBLISH_TOPIC_USERNAME")
-	defer os.Unsetenv("PUBLISH_TOPIC_PASSWORD")
-	defer os.Unsetenv("PUBLISH_TOPIC_MECHANISM")
+	err := os.Setenv("PUBLISH_TOPIC_USERNAME", "testuser")
+	assert.NoError(t, err)
+	err = os.Setenv("PUBLISH_TOPIC_PASSWORD", "testpassword")
+	assert.NoError(t, err)
+	err = os.Setenv("PUBLISH_TOPIC_MECHANISM", "SCRAM-SHA-512")
+	assert.NoError(t, err)
+	defer func() {
+		err = os.Unsetenv("PUBLISH_TOPIC_USERNAME")
+		assert.NoError(t, err)
+		err = os.Unsetenv("PUBLISH_TOPIC_PASSWORD")
+		assert.NoError(t, err)
+		err = os.Unsetenv("PUBLISH_TOPIC_MECHANISM")
+		assert.NoError(t, err)
+	}()
 
 	config := sarama.NewConfig()
 	setSASLParameters(config) // rename if package-level symbol differs
@@ -26,9 +34,12 @@ func TestSetSASLParameters_AllEnvVarsSet(t *testing.T) {
 }
 
 func TestSetSASLParameters_MechanismDefault(t *testing.T) {
-	os.Setenv("PUBLISH_TOPIC_USERNAME", "testuser")
-	os.Setenv("PUBLISH_TOPIC_PASSWORD", "testpassword")
-	os.Unsetenv("PUBLISH_TOPIC_MECHANISM")
+	err := os.Setenv("PUBLISH_TOPIC_USERNAME", "testuser")
+	assert.NoError(t, err)
+	err = os.Setenv("PUBLISH_TOPIC_PASSWORD", "testpassword")
+	assert.NoError(t, err)
+	err = os.Unsetenv("PUBLISH_TOPIC_MECHANISM")
+	assert.NoError(t, err)
 
 	config := sarama.NewConfig()
 	setSASLParameters(config)
