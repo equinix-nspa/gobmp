@@ -161,7 +161,7 @@ func NewKafkaPublisher(kConfig *Config) (pub.Publisher, error) {
 	config.Version = sarama.V1_1_0_0
 
 	if strings.ToLower(os.Getenv("PUBLISHER_SASL_ENABLE")) == "true" {
-		setSASLParameters(config)
+		setSASLParameters(config, kConfig)
 	}
 
 	br := sarama.NewBroker(kConfig.ServerAddress)
@@ -307,34 +307,22 @@ func ensureTopic(br *sarama.Broker, timeout time.Duration, topicName string, kCo
 	}
 }
 
-func setSASLParameters(config *sarama.Config) {
-	config.Net.SASL.Enable = true
+func setSASLParameters(sConfig *sarama.Config, kConfig *Config) {
+	sConfig.Net.SASL.Enable = true
 
-	topicUsernameEnvVar := os.Getenv("PUBLISH_TOPIC_USERNAME")
-	if topicUsernameEnvVar == "" {
-		glog.Warning("PUBLISH_TOPIC_USERNAME env var not set")
-	} else {
-		config.Net.SASL.User = topicUsernameEnvVar
-	}
+	sConfig.Net.SASL.User = kConfig.SASLUsername
+	sConfig.Net.SASL.Password = kConfig.SASLPassword
 
-	topicPasswordEnvVar := os.Getenv("PUBLISH_TOPIC_PASSWORD")
-	if topicPasswordEnvVar == "" {
-		glog.Warning("PUBLISH_TOPIC_PASSWORD env var not set")
-	} else {
-		config.Net.SASL.Password = topicPasswordEnvVar
-	}
-
-	topicMechanismEnvVar := os.Getenv("PUBLISH_TOPIC_MECHANISM")
-	if topicMechanismEnvVar == "" {
-		config.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
-		config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient {
+	if kConfig.SASLMechanism == "" {
+		sConfig.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+		sConfig.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient {
 			return scramSHA512Generator()
 		}
 	} else {
-		config.Net.SASL.Mechanism = sarama.SASLMechanism(topicMechanismEnvVar)
+		sConfig.Net.SASL.Mechanism = sarama.SASLMechanism(kConfig.SASLMechanism)
 	}
 
-	config.Net.SASL.Handshake = true
+	sConfig.Net.SASL.Handshake = true
 }
 
 func waitForBrokerConnection(br *sarama.Broker, config *sarama.Config, timeout time.Duration) error {

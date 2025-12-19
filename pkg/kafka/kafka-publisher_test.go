@@ -3,48 +3,53 @@ package kafka
 import (
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"testing"
 )
 
-func TestSetSASLParameters_AllEnvVarsSet(t *testing.T) {
-	err := os.Setenv("PUBLISH_TOPIC_USERNAME", "testuser")
-	assert.NoError(t, err)
-	err = os.Setenv("PUBLISH_TOPIC_PASSWORD", "testpassword")
-	assert.NoError(t, err)
-	err = os.Setenv("PUBLISH_TOPIC_MECHANISM", "SCRAM-SHA-512")
-	assert.NoError(t, err)
-	defer func() {
-		err = os.Unsetenv("PUBLISH_TOPIC_USERNAME")
-		assert.NoError(t, err)
-		err = os.Unsetenv("PUBLISH_TOPIC_PASSWORD")
-		assert.NoError(t, err)
-		err = os.Unsetenv("PUBLISH_TOPIC_MECHANISM")
-		assert.NoError(t, err)
-	}()
-
+func TestSetSASLParameters_AllFieldsSet(t *testing.T) {
+	kConfig := &Config{
+		SASLUsername:  "testuser",
+		SASLPassword:  "testpassword",
+		SASLMechanism: "PLAIN",
+	}
 	config := sarama.NewConfig()
-	setSASLParameters(config) // rename if package-level symbol differs
+
+	setSASLParameters(config, kConfig)
 
 	assert.True(t, config.Net.SASL.Enable)
 	assert.Equal(t, "testuser", config.Net.SASL.User)
 	assert.Equal(t, "testpassword", config.Net.SASL.Password)
-	assert.Equal(t, sarama.SASLMechanism("SCRAM-SHA-512"), config.Net.SASL.Mechanism)
+	assert.Equal(t, sarama.SASLMechanism("PLAIN"), config.Net.SASL.Mechanism)
 	assert.True(t, config.Net.SASL.Handshake)
 }
 
-func TestSetSASLParameters_MechanismDefault(t *testing.T) {
-	err := os.Setenv("PUBLISH_TOPIC_USERNAME", "testuser")
-	assert.NoError(t, err)
-	err = os.Setenv("PUBLISH_TOPIC_PASSWORD", "testpassword")
-	assert.NoError(t, err)
-	err = os.Unsetenv("PUBLISH_TOPIC_MECHANISM")
-	assert.NoError(t, err)
-
+func TestSetSASLParameters_DefaultMechanism(t *testing.T) {
+	kConfig := &Config{
+		SASLUsername: "testuser",
+		SASLPassword: "testpassword",
+	}
 	config := sarama.NewConfig()
-	setSASLParameters(config)
 
+	setSASLParameters(config, kConfig)
+
+	assert.True(t, config.Net.SASL.Enable)
 	assert.Equal(t, "testuser", config.Net.SASL.User)
 	assert.Equal(t, "testpassword", config.Net.SASL.Password)
-	assert.Equal(t, sarama.SASLMechanism("SCRAM-SHA-512"), config.Net.SASL.Mechanism)
+	assert.Equal(t, sarama.SASLTypeSCRAMSHA512, string(config.Net.SASL.Mechanism))
+	assert.NotNil(t, config.Net.SASL.SCRAMClientGeneratorFunc)
+	assert.True(t, config.Net.SASL.Handshake)
+}
+
+func TestSetSASLParameters_EmptyConfig(t *testing.T) {
+	kConfig := &Config{}
+	config := sarama.NewConfig()
+
+	setSASLParameters(config, kConfig)
+
+	assert.True(t, config.Net.SASL.Enable)
+	assert.Empty(t, config.Net.SASL.User)
+	assert.Empty(t, config.Net.SASL.Password)
+	assert.Equal(t, sarama.SASLTypeSCRAMSHA512, string(config.Net.SASL.Mechanism))
+	assert.NotNil(t, config.Net.SASL.SCRAMClientGeneratorFunc)
+	assert.True(t, config.Net.SASL.Handshake)
 }
