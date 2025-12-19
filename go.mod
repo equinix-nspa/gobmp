@@ -9,6 +9,7 @@ require (
 	github.com/nats-io/nats.go v1.39.1
 	github.com/sbezverk/tools v0.0.0-20230714051746-80037ac202cf
 	github.com/stretchr/testify v1.9.0
+	github.com/xdg-go/scram v1.2.0
 	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.30.0
 )
@@ -37,6 +38,8 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
 	golang.org/x/crypto v0.34.0 // indirect
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
 	golang.org/x/net v0.33.0 // indirect
